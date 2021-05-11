@@ -19,59 +19,40 @@ output network or O-Net(강한 CNN)으로 얼굴 부분 결과 제안
 * NMS(non-maximum suppression) : 한 object에 여러개의 box가 bounding되는 부분(class별 확률)을 제거하는 방법
 """
 
-pip install mtcnn #전처리모델 사용
+# pip install mtcnn #전처리모델 사용
 
 from matplotlib import pyplot
 from mtcnn.mtcnn import MTCNN
-from matplotlib.patches import Rectangle
-from matplotlib.patches import Circle
+from os import listdir
+from os.path import isfile, join
 
-#face detection 결과 boxes, key points draw
-def draw_image_with_boxes(filename, result_list):
-  data=pyplot.imread(filename)
-  pyplot.imshow(data)
-  ax = pyplot.gca()
-  for result in result_list:
-    x, y, width, height = result['box']
-    rect = Rectangle((x, y), width, height, fill=False, color='red')
-    ax.add_patch(rect)
-    for key, value in result['keypoints'].items():
-      dot = Circle(value, radius=2, color='red')
-      ax.add_patch(dot)
-  pyplot.show()
 
-"""* x=박스의 왼쪽하단 모서리의 x좌표
-* y=박스의 왼쪽하단 모서리의 y좌표
+path = './dataset/real_img'
+files = [f for f in listdir(path) if isfile(join(path, f))]
+
+"""
+얼굴 추출
+* x1 = 박스의 왼쪽하단 모서리의 x좌표
+* y1 = 박스의 왼쪽하단 모서리의 y좌표
 * width = 박스의 가로 길이
 * height = 박스의 세로 길이
 """
-
-from os import listdir
-from os.path import isfile, join
-import numpy
-path = './pic'
-files = [f for f in listdir(path) if isfile(join(path, f))]
-images = numpy.empty(len(files), dtype=object)
-
-#얼굴 추출
 def draw_faces(filename, result_list):
   data = pyplot.imread(filename)
+
   for i in range(len(result_list)):
     x1, y1, width, height = result_list[i]['box']
-    x2, y2 = x1+width, y1+height#오른쪽 하단 모서리 좌표
-    pyplot.subplot(1, len(result_list), i+1)
-    pyplot.axis('off')
-    pyplot.imshow(data[y1:y2, x1:x2])#좌표로 얼굴 부분 추출
-  pyplot.show()
+    x2, y2 = x1+width, y1+height                  #오른쪽 하단 모서리 좌표
+    pyplot.imsave("C:/Users/mmclab1/Desktop/fakecheck/dataset/real_img/%s" % (filename.split('\\')[1]),
+                  data[max(y1 - 20, 0):y2 + 20, max(x1 - 40, 0):x2 + 40])
+
 
 for n in range(0, len(files)):
-  fn=join(path, files[n])
-  pix = pyplot.imread(fn)
-  detector = MTCNN()
-  fs = detector.detect_faces(pix)
-  draw_image_with_boxes(fn, fs)
+  fn = join(path, files[n])
   pixels = pyplot.imread(fn)
+
   detector = MTCNN()
   faces = detector.detect_faces(pixels)
+
   draw_faces(fn, faces)
 
