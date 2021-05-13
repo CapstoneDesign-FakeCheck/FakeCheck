@@ -112,11 +112,22 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
     plt.xlabel('epoch')
     plt.legend(['train', 'validation'], loc='upper left')
 
-    plt.savefig('train_model_epoch10.png')
+    plt.savefig('train_model_epoch20_adam_lr0.001.png')
     plt.show()
 
     return model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs
 
+class Normalize(nn.Module):
+    def __init__(self, mean, std):
+        super(Normalize, self).__init__()
+        self.register_buffer('mean', torch.Tensor(mean))
+        self.register_buffer('std', torch.Tensor(std))
+
+    def forward(self, input):
+        # Broadcasting
+        mean = self.mean.reshape(1, 3, 1, 1)
+        std = self.std.reshape(1, 3, 1, 1)
+        return (input - mean) / std
 
 def main():
 
@@ -124,6 +135,12 @@ def main():
     model = EfficientNet.from_pretrained(model_name, num_classes=2)
     # model = EfficientNet.from_name('efficientnet-b0') 모델 구조 가져오기
     # model = EfficientNet.from_pretrained('efficientnet-b0') 모델이 이미 학습한 weight 가져오기
+
+    norm_layer = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    model = nn.Sequential(
+        norm_layer,
+        model
+    )
 
     # TODO: 미리 학습된 weight고정 --> 뒷 부분 2단계만 학습함.
     # fc 제외하고 freeze
@@ -139,11 +156,11 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # set gpu
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
-    # optimizer = optim.SGD(model.parameters(),
-    #                          lr=0.05,
-    #                          momentum=0.9,
-    #                          weight_decay=1e-4)
-    optimizer = optim.Adam(model.parameters(), lr=0.0001)
+    optimizer = optim.SGD(model.parameters(),
+                             lr=0.05,
+                             momentum=0.9,
+                             weight_decay=1e-4)
+    # optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     lmbda = lambda epoch: 0.98739
     exp_lr_scheduler = optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lmbda)
