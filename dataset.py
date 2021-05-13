@@ -4,6 +4,7 @@ from torchvision import transforms, datasets
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Subset
 
+
 def make_dataset(dataset):
     # data load
     batch_size  = 128
@@ -62,6 +63,9 @@ def load_data():
     
     * The images have to be loaded in to a range of [0, 1] and then normalized using
     mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
+    
+    * ToTensor: Numpy 형태의 이미지 데이터를 Tensor형태로 바꿔주는 역할
+    (Height x Width x Channels), 0~255의 값 --> torch.Float.Tensor 형태: (C x H x W) 순서와 0.0 부터 1.0사이의 값들로 변환
     '''
 
     dataloaders = make_dataset(dataset)
