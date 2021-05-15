@@ -11,7 +11,6 @@ from efficientnet_pytorch import EfficientNet
 
 
 def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num_epochs=25):
-    device = device
     since = time.time()
 
     '''
@@ -92,9 +91,11 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
     print('Best valid Acc: %d - %.1f' % (best_idx, best_acc))
 
     # load best model weights
+    PATH = 'pytorch_model.pt'
     model.load_state_dict(best_model_wts)
-    torch.save(model.state_dict(), 'pytorch_model.pt')
-    torch.save(model.state_dict(), 'C:/Users/mmclab1/.cache/torch/hub/checkpoints/pytorch_model.pt')
+    # torch.save(model.state_dict(), PATH)
+    torch.save(model, PATH)
+    torch.save(model.state_dict(), f'C:/Users/mmclab1/.cache/torch/hub/checkpoints/{PATH}')
     print('model saved')
 
     # train, validation의 loss, acc 그래프로 나타내기
@@ -117,6 +118,12 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
 
     return model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs
 
+
+
+'''
+adversarial attack을 위해 dataset불러오는 부분에서 하지 못했던 normalize를 model의 layer로 추가해 설정
+normalize 클래스를 만들고 norm_layer = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])를 통해 수행
+'''
 class Normalize(nn.Module):
     def __init__(self, mean, std):
         super(Normalize, self).__init__()
@@ -129,8 +136,14 @@ class Normalize(nn.Module):
         std = self.std.reshape(1, 3, 1, 1)
         return (input - mean) / std
 
-def main():
 
+def set_hyperparameters():
+
+    '''
+    #######################
+    ###  network 설정  ####
+    ######################
+    '''
     model_name = 'efficientnet-b0'   # 모델 설정
     model = EfficientNet.from_pretrained(model_name, num_classes=2)
     # model = EfficientNet.from_name('efficientnet-b0') 모델 구조 가져오기
@@ -149,31 +162,46 @@ def main():
     #         p.requires_grad = False
     # model = torch.nn.parallel.DistributedDataParallel(model)
 
-    # dataset.py에서 dataloaders 불러오기
-    dataloaders = load_data()
 
-    # training을 위한 설정
+    '''
+    #######################
+    # training을 위한 설정 #
+    ######################
+    '''
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # set gpu
     model = model.to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(),
-                             lr=0.05,
-                             momentum=0.9,
-                             weight_decay=1e-4)
+                          lr=0.05,
+                          momentum=0.9,
+                          weight_decay=1e-4)
     # optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     lmbda = lambda epoch: 0.98739
     exp_lr_scheduler = optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lmbda)
+    num_epochs = 20
+
+    return criterion, device, model, optimizer, exp_lr_scheduler, num_epochs
+
+
+
+def main():
+    # hyper-paramters 받아오기
+    criterion, device, model, optimizer, exp_lr_scheduler, num_epochs = set_hyperparameters()
+
+    # dataset.py에서 dataloaders 불러오기
+    dataloaders, _, _ = load_data()
 
     # 학습 돌리기
     model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs = train_model(device, dataloaders, model,
                                                                                                   criterion,
                                                                                                   optimizer,
                                                                                                   exp_lr_scheduler,
-                                                                                                  num_epochs=20)
-    return model, inputs
+                                                                                                  num_epochs=num_epochs)
+
+    return inputs
 
 if __name__ == '__main__':
-    _ = main()
+    main()
 
 

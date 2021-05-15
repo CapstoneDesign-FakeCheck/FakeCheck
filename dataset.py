@@ -36,7 +36,7 @@ def make_dataset(dataset):
     batch_num['train'], batch_num['valid'], batch_num['test'] = len(dataloaders['train']), len(dataloaders['valid']), len(dataloaders['test'])
     print('batch_size : %d,  tvt : %d / %d / %d' % (batch_size, batch_num['train'], batch_num['valid'], batch_num['test']))
 
-    return dataloaders
+    return dataloaders, batch_size
 
 
 def load_data():
@@ -68,5 +68,5 @@ def load_data():
     (Height x Width x Channels), 0~255의 값 --> torch.Float.Tensor 형태: (C x H x W) 순서와 0.0 부터 1.0사이의 값들로 변환
     '''
 
-    dataloaders = make_dataset(dataset)
-    return dataloaders
+    dataloaders, batch_size = make_dataset(dataset)
+    return dataloaders, batch_size, len(dataset.imgs)

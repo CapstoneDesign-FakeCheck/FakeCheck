@@ -13,8 +13,7 @@ from efficientnet_pytorch import EfficientNet
 
 
 
-def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num_epochs=25):
-    device = device
+def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
     '''
@@ -40,16 +39,25 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
 
             running_loss, running_corrects, num_cnt = 0.0, 0, 0
 
+            ratio_adv_ori = int(len_dataset // batch_size * 0.3)   # adversarial, original data 비율 정하기
+
             # batch 별로 나눠진 데이터 불러오기
-            for inputs, labels in dataloaders[phase]:
+            for i, (inputs, labels) in enumerate(dataloaders[phase]):
 
-                # adversarial attack 정의
-                atks = [torchattacks.FGSM(model, eps=8 / 255),
-                        # torchattacks.BIM(model, eps=8 / 255, alpha=2 / 255, steps=7),
-                        # torchattacks.PGD(model, eps=8 / 255, alpha=2 / 255, steps=7),
-                        ]
+                # 설정한 비율에 따라 adversarial, original input으로 나누기
+                if i <= ratio_adv_ori:
+                    inputs = inputs.to(device)
 
-                adv_images = atks[0](inputs, labels).to(device)
+                else:
+                    # adversarial attack 정의
+                    atks = [torchattacks.FGSM(model, eps=8 / 255),
+                            torchattacks.BIM(model, eps=8 / 255, alpha=2 / 255, steps=7),
+                            torchattacks.PGD(model, eps=8 / 255, alpha=2 / 255, steps=7),
+                            ]
+
+                    inputs = atks[0](inputs, labels).to(device)
+
+
                 labels = labels.to(device)
 
                 # 학습 가능한 가중치인 "optimizer 객체" 사용하여, 갱신할 변수들에 대한 모든 변화도 0으로 설정
@@ -60,7 +68,7 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
                 # gradient 계산하는 모드로, 학습 시에만 연산 기록을 추적
                 with torch.set_grad_enabled(phase == 'train'):
 
-                    outputs = model(adv_images)         # h(x) 값, 모델의 예측 값
+                    outputs = model(inputs)         # h(x) 값, 모델의 예측 값
                     _, preds = torch.max(outputs, 1)    # dim = 1, output의 각 sample 결과값(row)에서 max값 1개만 뽑음.
                     loss = criterion(outputs, labels)   # h(x) 모델이 잘 예측했는지 판별하는 loss function
 
@@ -101,9 +109,11 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
     print('Best valid Acc: %d - %.1f' % (best_idx, best_acc))
 
     # load best model weights
+    PATH = 'pytorch_model_adv.pt'
     model.load_state_dict(best_model_wts)
-    torch.save(model.state_dict(), 'pytorch_model_adv.pt')
-    torch.save(model.state_dict(), 'C:/Users/mmclab1/.cache/torch/hub/checkpoints/pytorch_model_adv.pt')
+    # torch.save(model.state_dict(), PATH)
+    torch.save(model, PATH)
+    torch.save(model.state_dict(), f'C:/Users/mmclab1/.cache/torch/hub/checkpoints/{PATH}')
     print('model saved')
 
     # train, validation의 loss, acc 그래프로 나타내기
@@ -121,7 +131,7 @@ def train_model(device, dataloaders, model, criterion, optimizer, scheduler, num
     plt.xlabel('epoch')
     plt.legend(['train', 'validation'], loc='upper left')
 
-    plt.savefig('adv_train_model_epoch20_SGD.png')
+    plt.savefig('adv_train_model_epoch15_SGD.png')
     plt.show()
 
     return model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs
@@ -159,7 +169,7 @@ def main():
     # model = torch.nn.parallel.DistributedDataParallel(model)
 
     # dataset.py에서 dataloaders 불러오기
-    dataloaders = load_data()
+    dataloaders, batch_size, len_dataset = load_data()
 
     # training을 위한 설정
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # set gpu
@@ -175,10 +185,8 @@ def main():
     exp_lr_scheduler = optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lmbda)
 
     # 학습 돌리기
-    model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs = train_model(device, dataloaders, model,
-                                                                                                  criterion,
-                                                                                                  optimizer,
-                                                                                                  exp_lr_scheduler,
+    model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs = train_model(device, dataloaders, batch_size, len_dataset,
+                                                                                                  model, criterion, optimizer, exp_lr_scheduler,
                                                                                                   num_epochs=20)
     return model, inputs
 
