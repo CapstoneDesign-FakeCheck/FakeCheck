@@ -12,7 +12,6 @@ from dataset import load_data
 from efficientnet_pytorch import EfficientNet
 
 
-
 def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
 
@@ -39,13 +38,13 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
 
             running_loss, running_corrects, num_cnt = 0.0, 0, 0
 
-            ratio_adv_ori = int(len_dataset // batch_size * 0.3)   # adversarial, original data 비율 정하기
+            ratio_adv_ori = int((len_dataset // batch_size + 1) * 0.4)   # adversarial, original data 비율 정하기
 
             # batch 별로 나눠진 데이터 불러오기
             for i, (inputs, labels) in enumerate(dataloaders[phase]):
 
                 # 설정한 비율에 따라 adversarial, original input으로 나누기
-                if i <= ratio_adv_ori:
+                if i < ratio_adv_ori:
                     inputs = inputs.to(device)
 
                 else:
@@ -55,7 +54,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
                             torchattacks.PGD(model, eps=8 / 255, alpha=2 / 255, steps=7),
                             ]
 
-                    inputs = atks[0](inputs, labels).to(device)
+                    inputs = atks[0](inputs, labels).to(device)     # (batch_size, channel, 224 224)
 
 
                 labels = labels.to(device)
@@ -109,9 +108,9 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
     print('Best valid Acc: %d - %.1f' % (best_idx, best_acc))
 
     # load best model weights
-    PATH = 'pytorch_model_adv.pt'
-    model.load_state_dict(best_model_wts)
-    # torch.save(model.state_dict(), PATH)
+    PATH = 'pytorch_model_adv_epoch20.pt'
+    model.load_state_dict(best_model_wts)   # 전체모델 저장
+    # torch.save(model.state_dict(), PATH)  # 모델 객체의 state_dict 저장
     torch.save(model, PATH)
     torch.save(model.state_dict(), f'C:/Users/mmclab1/.cache/torch/hub/checkpoints/{PATH}')
     print('model saved')
@@ -131,7 +130,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
     plt.xlabel('epoch')
     plt.legend(['train', 'validation'], loc='upper left')
 
-    plt.savefig('adv_train_model_epoch15_SGD.png')
+    plt.savefig('adv_train_model_epoch20_SGD.png')
     plt.show()
 
     return model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs
@@ -154,6 +153,7 @@ def main():
     model = EfficientNet.from_pretrained(model_name, num_classes=2)
     # model = EfficientNet.from_name('efficientnet-b0') 모델 구조 가져오기
     # model = EfficientNet.from_pretrained('efficientnet-b0') 모델이 이미 학습한 weight 가져오기
+    model.set_swish(memory_efficient=False)
 
     norm_layer = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     model = nn.Sequential(
