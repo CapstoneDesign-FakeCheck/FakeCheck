@@ -148,6 +148,14 @@ def set_hyperparameters():
     model = EfficientNet.from_pretrained(model_name, num_classes=2)
     # model = EfficientNet.from_name('efficientnet-b0') 모델 구조 가져오기
     # model = EfficientNet.from_pretrained('efficientnet-b0') 모델이 이미 학습한 weight 가져오기
+    '''
+    * ImageNet으로 이미 학습한 weight 가져오는 이유
+    14 million 개의 이미지와 20,000개의 카테고리로 이루어진 ImageNet
+    20,000개 중 1,000개의 class로 학습을 시켰을 때, 다양한 클래스이기 때문에 nn이 일반적인 성능을 내도록 유도됨.
+    클래스에 특화되어있는 특정 feature를 뽑아내는 것을 넘어 , edge detection 처럼 일반적인 구성을 나타냄.
+    '''
+
+    model.set_swish(memory_efficient=False)
 
     norm_layer = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     model = nn.Sequential(

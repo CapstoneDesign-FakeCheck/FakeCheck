@@ -109,9 +109,9 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
 
     # load best model weights
     PATH = 'pytorch_model_adv_epoch20.pt'
-    model.load_state_dict(best_model_wts)   # 전체모델 저장
+    model.load_state_dict(best_model_wts)
     # torch.save(model.state_dict(), PATH)  # 모델 객체의 state_dict 저장
-    torch.save(model, PATH)
+    torch.save(model, PATH)                 # 전체모델 저장
     torch.save(model.state_dict(), f'C:/Users/mmclab1/.cache/torch/hub/checkpoints/{PATH}')
     print('model saved')
 
@@ -153,6 +153,9 @@ def main():
     model = EfficientNet.from_pretrained(model_name, num_classes=2)
     # model = EfficientNet.from_name('efficientnet-b0') 모델 구조 가져오기
     # model = EfficientNet.from_pretrained('efficientnet-b0') 모델이 이미 학습한 weight 가져오기
+
+    # onnx로 모델 변환시 에러
+    # RuntimeError: ONNX export failed: Couldn't export Python operator SwishImplementation
     model.set_swish(memory_efficient=False)
 
     norm_layer = Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
