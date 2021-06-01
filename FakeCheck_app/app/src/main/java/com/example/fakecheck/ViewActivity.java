@@ -9,18 +9,22 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
 
 import com.gun0912.tedpermission.PermissionListener;
 import com.gun0912.tedpermission.TedPermission;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -50,10 +54,29 @@ public class ViewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.image_view);
 
+        Button button = (Button)findViewById(R.id.button);
         tedPermission();
 
         Intent intent = getIntent();
         img = intent.getStringExtra("img");
+
+        button.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v){
+                ByteArrayOutputStream stream= new ByteArrayOutputStream();
+                Bitmap bit = ((BitmapDrawable)imageView.getDrawable()).getBitmap();
+                float scale = (float)(1024/(float)bit.getWidth());
+                int image_w = (int)(bit.getWidth()*scale);
+                int image_h = (int)(bit.getHeight()*scale);
+                Bitmap resize = Bitmap.createScaledBitmap(bit, image_w, image_h, true);
+                resize.compress(Bitmap.CompressFormat.JPEG, 100, stream);
+                byte[] byteArray= stream.toByteArray();
+
+                Intent intent = new Intent(ViewActivity.this, DeepActivity.class);
+                intent.putExtra("image", byteArray);
+                startActivity(intent);
+            }
+        });
 
         if(img.equals("cam")){//Camera버튼 클릭 시
             if(isPermission) takePhoto();
@@ -118,22 +141,21 @@ public class ViewActivity extends AppCompatActivity {
             setImage();
 
         } else if (requestCode == PICK_FROM_CAMERA) {
-
             setImage();
 
         }
     }
 
+
     //앨범에서 이미지 가져오기
     private void goToAlbum() {
-
         Intent intent = new Intent(Intent.ACTION_PICK);
         intent.setType(MediaStore.Images.Media.CONTENT_TYPE);
         startActivityForResult(intent, PICK_FROM_ALBUM);
     }
 
 
-    //카메라에서 이미지 가져오기
+    //카메라로 이미지 가져오기
     private void takePhoto() {
 
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -146,7 +168,6 @@ public class ViewActivity extends AppCompatActivity {
             e.printStackTrace();
         }
         if (tempFile != null) {
-
             Uri photoUri = FileProvider.getUriForFile(getBaseContext(), "com.example.fakecheck.fileprovider", tempFile);
             intent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
             startActivityForResult(intent, PICK_FROM_CAMERA);
@@ -244,6 +265,7 @@ public class ViewActivity extends AppCompatActivity {
                 .check();
 
     }
+
     //MTCNN
     public void processImage(Bitmap bitmap){
         Bitmap bm= Utils.copyBitmap(bitmap);
@@ -265,19 +287,25 @@ public class ViewActivity extends AppCompatActivity {
             imageView.setImageBitmap(bitmapCrop);
         }
     }
-    //이미지 회전
+    /*
+    이미지 회전
+     */
     public static Bitmap rotateImage(Bitmap source, float angle) {
         Matrix matrix = new Matrix();
         matrix.postRotate(angle);
         return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
                 matrix, true);
     }
-    //인식된 얼굴 크기만큼 crop
+    /*
+    인식된 얼굴 크기만큼 crop
+     */
     public static Bitmap crop(Bitmap bitmap, Rect rect){
         Bitmap croped = Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.right-rect.left, rect.bottom-rect.top);
         return croped;
     }
-    //얼굴 인식 후 정면으로 회전
+    /*
+    얼굴 인식 후 정면으로 회전
+     */
     public static Bitmap face_align(Bitmap bitmap, Point[] landmarks) {
         float diffEyeX = landmarks[1].x - landmarks[0].x;
         float diffEyeY = landmarks[1].y - landmarks[0].y;
