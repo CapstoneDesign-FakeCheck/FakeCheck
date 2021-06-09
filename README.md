@@ -45,8 +45,10 @@ tensor2pil.resize((224, 224))
     result, encimg = cv2.imencode('.jpg', cv_img, encode_param)
 ```
 </ul></ul>
+
 ## MODEL CONVERSION
 * pt(pytorch) -> onnx -> tf -> tflite
+
 ## APP
 Camera와 Gallery를 통해 사진을 받아온 뒤 MTCNN으로 얼굴 부분만 crop한다. 그 다음 tlite 모델의 input에 맞춰 이미지를 224*224로 resize하고 RGB채널을 BGR순서로 바꿔주었다.<br>
 <img height="300" src="https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/app_main.png"/>
