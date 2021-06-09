@@ -7,7 +7,9 @@ import copy
 import torchattacks
 import torchvision.utils
 import matplotlib.pyplot as plt
+import cv2
 
+from torchvision import transforms as transforms
 from dataset import load_data
 from efficientnet_pytorch import EfficientNet
 
@@ -44,7 +46,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
             for i, (inputs, labels) in enumerate(dataloaders[phase]):
 
                 # 설정한 비율에 따라 adversarial, original input으로 나누기
-                if i < ratio_adv_ori:
+                if (phase == 'train' and (i < ratio_adv_ori)) or (phase == 'valid' and i % 2 == 0):
                     inputs = inputs.to(device)
 
                 else:
@@ -54,7 +56,58 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
                             torchattacks.PGD(model, eps=8 / 255, alpha=2 / 255, steps=7),
                             ]
 
-                    inputs = atks[0](inputs, labels).to(device)     # (batch_size, channel, 224 224)
+                    inputs = atks[0](inputs, labels).to(device)
+
+                    # Image Processing Based Defense Methods --> tensor를 image로 변환하여 적용
+                    for batch in range(inputs.shape[0]):
+                        tensor2pil = transforms.ToPILImage()(inputs[batch]).convert('RGB')
+
+                        # 1. Resizing
+                        # Image.resize(size, resample=3, box=None, reducing_gap=None)
+                        # resample(filter): PIL.Image.NEAREST, PIL.Image.BOX, PIL.Image.BILINEAR, PIL.Image.HAMMING, PIL.Image.BICUBIC
+                        tensor2pil.resize((74, 74))
+                        tensor2pil.resize((224, 224))
+
+                        # 다시 이미지를 tensor로 바꾸기
+                        tensor_img = transforms.ToTensor()(tensor2pil)
+                        inputs[batch] = tensor_img
+
+
+                        # 2. jpeg compression
+                        tensor2numpy = inputs[batch].cpu().numpy()
+                        cv_img = np.transpose(tensor2numpy, (1, 2, 0))      # [w, h, c]
+                        cv_img = cv_img * 255
+                        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 15]
+                        result, encimg = cv2.imencode('.jpg', cv_img, encode_param)
+                        if False == result:
+                            print('could not encode image!')
+                            quit()
+
+                        # decode from jpeg format
+                        jpeg_img = cv2.imdecode(encimg, 1)
+                        jpeg2input = np.transpose(jpeg_img, (2, 0, 1)) / 255
+                        inputs[batch] = torch.Tensor(jpeg2input).to(device)
+
+
+                    # # save adversarial examples
+                    # save_inputs = inputs.cpu().numpy()
+                    # labels = labels.cpu().numpy()
+                    # from matplotlib.pyplot import imsave
+                    #
+                    # for j in range(batch_size):
+                    #     image = save_inputs[j, :, :, :]
+                    #     label = labels[j]
+                    #     if label == 0:
+                    #         imsave(
+                    #             f"C:/Users/mmclab1/Desktop/fakecheck/dataset/adv_img_examples/"
+                    #             f"fake_adversarial_image_{j}.png",
+                    #             np.transpose(image, (1, 2, 0)))
+                    #     else:
+                    #         imsave(
+                    #             f"C:/Users/mmclab1/Desktop/fakecheck/dataset/adv_img_examples/"
+                    #             f"real_adversarial_image_{j}.png",
+                    #             np.transpose(image, (1, 2, 0)))
+
 
 
                 labels = labels.to(device)
@@ -67,7 +120,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
                 # gradient 계산하는 모드로, 학습 시에만 연산 기록을 추적
                 with torch.set_grad_enabled(phase == 'train'):
 
-                    outputs = model(inputs)         # h(x) 값, 모델의 예측 값
+                    outputs = model(inputs)             # h(x) 값, 모델의 예측 값
                     _, preds = torch.max(outputs, 1)    # dim = 1, output의 각 sample 결과값(row)에서 max값 1개만 뽑음.
                     loss = criterion(outputs, labels)   # h(x) 모델이 잘 예측했는지 판별하는 loss function
 
@@ -108,7 +161,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
     print('Best valid Acc: %d - %.1f' % (best_idx, best_acc))
 
     # load best model weights
-    PATH = 'pytorch_model_adv_epoch20.pt'
+    PATH = 'pytorch_model_adv_epoch30_4_sgd_resize3_comp15.pt'
     model.load_state_dict(best_model_wts)
     # torch.save(model.state_dict(), PATH)  # 모델 객체의 state_dict 저장
     torch.save(model, PATH)                 # 전체모델 저장
@@ -130,7 +183,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
     plt.xlabel('epoch')
     plt.legend(['train', 'validation'], loc='upper left')
 
-    plt.savefig('adv_train_model_epoch20_SGD.png')
+    plt.savefig('graph_adv_epoch30_4_sgd_resize3_comp15.png')
     plt.show()
 
     return model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs
@@ -148,7 +201,6 @@ class Normalize(nn.Module):
         return (input - mean) / std
 
 def main():
-
     model_name = 'efficientnet-b0'   # 모델 설정
     model = EfficientNet.from_pretrained(model_name, num_classes=2)
     # model = EfficientNet.from_name('efficientnet-b0') 모델 구조 가져오기
@@ -190,7 +242,7 @@ def main():
     # 학습 돌리기
     model, best_idx, best_acc, train_loss, train_acc, valid_loss, valid_acc, inputs = train_model(device, dataloaders, batch_size, len_dataset,
                                                                                                   model, criterion, optimizer, exp_lr_scheduler,
-                                                                                                  num_epochs=20)
+                                                                                                  num_epochs=50)
     return model, inputs
 
 if __name__ == '__main__':
