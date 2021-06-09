@@ -25,18 +25,17 @@ deepfake로 인한 피해를 줄이기 위해서 모델 방해공격(adversarial
 데이터를 로드한 후 adversarial example을 생성하여 train set에 adversarial attack이 들어간 image를 추가하였다.
 이미지 전처리에서 normalize를 적용한 결과 pixel값(-1&#126;1)과 adversarial attack에 대한 input값(0&#126;1)이 다르므로 모델에 normalize를 수행하는 layer를 추가해주었다.
 adversarial training은 여러 케이스 중 성능이 가장 높게 나온 6(adv img):4(ori img)의 비율로 학습한 모델을 선택하여 진행하였다.
+
 |model|origin data로 test|adv data로 test|
 |---|---|---|
 |adv_training<br>ori:adv = 4:6|<img width="300" src="https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/ori_test.png"/>|<img width="300" src="https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/adv_test.png"/>|
-* Image processing defense
-&#8211; Resizing<br>
-Resizing은 local interpolation을 통해 smoothing 효과를 나타내기 때문에 adversarial example의 perturbation(noise)를 일부 제거하는 효과가 있다. 여러 비율로 resizing 해본 결과, 가장 높은 공격 방어율을 보인 3배 비율을 이미지에 적용하였다. 
+* Image processing defense<br>
+	- Resizing<br>Resizing은 local interpolation을 통해 smoothing 효과를 나타내기 때문에 adversarial example의 perturbation(noise)를 일부 제거하는 효과가 있다. 여러 비율로 resizing 해본 결과, 가장 높은 공격 방어율을 보인 3배 비율을 이미지에 적용하였다. 
 ```
 tensor2pil.resize((74, 74))
 tensor2pil.resize((224, 224))
 ```
-&#8211; JPEG압축<br>
-JPEG 압축은 이미지의 고주파 구성요소를 압축하고, adversarial perturbation도 고주파에 속하기 때문에 JPEG 압축을 통해 공격 효과를 줄일 수 있다. 많은 테스트 결과 quality factor가 15일 때 가장 적절했으며, 이는 선형적 변환인 resizing보다 공격 방어율이 더 높다는 것을 확인해 볼 수 있었다.
+	- JPEG압축<br>JPEG 압축은 이미지의 고주파 구성요소를 압축하고, adversarial perturbation도 고주파에 속하기 때문에 JPEG 압축을 통해 공격 효과를 줄일 수 있다. 많은 테스트 결과 quality factor가 15일 때 가장 적절했으며, 이는 선형적 변환인 resizing보다 공격 방어율이 더 높다는 것을 확인해 볼 수 있었다.
 ```
 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY, 15]
 result, encimg = cv2.imencode('.jpg', cv_img, encode_param)
