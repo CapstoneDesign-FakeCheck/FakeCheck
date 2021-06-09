@@ -10,7 +10,7 @@ public class Box {
     public float score;         // probability
     public float[] bbr;         // bounding box regression
     public boolean deleted;
-    public Point[] landmark;    // facial landmark.只有ONet输出Landmark
+    public Point[] landmark;    // facial landmark
 
     public Box() {
         box = new int[4];
@@ -43,7 +43,6 @@ public class Box {
         return box[3] - box[1] + 1;
     }
 
-    // 转为rect
     public Rect transform2Rect() {
         Rect rect = new Rect();
         rect.left = box[0];
@@ -53,7 +52,6 @@ public class Box {
         return rect;
     }
 
-    // 面积
     public int area() {
         return width() * height();
     }
@@ -69,7 +67,6 @@ public class Box {
         for (int i = 0; i < 4; i++) bbr[i] = 0.0f;
     }
 
-    // 当前box转为正方形
     public void toSquareShape() {
         int w = width();
         int h = height();
@@ -82,7 +79,6 @@ public class Box {
         }
     }
 
-    // 防止边界溢出，并维持square大小
     public void limitSquare(int w, int h) {
         if (box[0] < 0 || box[1] < 0) {
             int len = max(-box[0], -box[1]);
@@ -96,7 +92,6 @@ public class Box {
         }
     }
 
-    // 坐标是否越界
     public void limit_square2(int w,int h){
         if (width() > w) box[2]-=width()-w;
         if (height()> h) box[3]-=height()-h;

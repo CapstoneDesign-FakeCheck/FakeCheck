@@ -47,6 +47,7 @@ public class DeepActivity extends AppCompatActivity {
         Interpreter tf_lite = getTfliteInterpreter("tfLite_model2.tflite");
         float[][] output = new float[1][2];
         tf_lite.run(input, output);
+        //결과 출력
         if(output[0][0]<output[0][1]){
             textView.setText("real");
         }

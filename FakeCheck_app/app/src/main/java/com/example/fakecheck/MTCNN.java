@@ -28,8 +28,8 @@ public class MTCNN {
     private static final String[] RNetOutName =new String[]{ "rnet/prob1:0","rnet/conv5-2/conv5-2:0",};
     private static final String   ONetInName  ="onet/input:0";
     private static final String[] ONetOutName =new String[]{ "onet/prob1:0","onet/conv6-2/conv6-2:0","onet/conv6-3/conv6-3:0"};
-    //安卓相关
-    public  long lastProcessTime;   //最后一张图片处理的时间ms
+
+    public  long lastProcessTime;
     private static final String TAG="MTCNN";
     private AssetManager assetManager;
     private TensorFlowInferenceInterface inferenceInterface;
@@ -48,7 +48,7 @@ public class MTCNN {
         }
         return true;
     }
-    //读取Bitmap像素值，预处理(-127.5 /128)，转化为一维数组返回
+
     private float[] normalizeImage(Bitmap bitmap){
         int w=bitmap.getWidth();
         int h=bitmap.getHeight();
@@ -66,27 +66,25 @@ public class MTCNN {
         }
         return floatValues;
     }
-    /*
-       检测人脸,minSize是最小的人脸像素值
-     */
+
     private Bitmap bitmapResize(Bitmap bm, float scale) {
         int width = bm.getWidth();
         int height = bm.getHeight();
-        // CREATE A MATRIX FOR THE MANIPULATION。matrix指定图片仿射变换参数
+        //Create a batrix for the manipulation.
         Matrix matrix = new Matrix();
-        // RESIZE THE BIT MAP
+        //Resize the bitmap.
         matrix.postScale(scale, scale);
         Bitmap resizedBitmap = Bitmap.createBitmap(
                 bm, 0, 0, width, height, matrix, true);
         return resizedBitmap;
     }
-    //输入前要翻转，输出也要翻转
+
     private  int PNetForward(Bitmap bitmap,float [][]PNetOutProb,float[][][]PNetOutBias){
         int w=bitmap.getWidth();
         int h=bitmap.getHeight();
 
         float[] PNetIn=normalizeImage(bitmap);
-        Utils.flip_diag(PNetIn,h,w,3); //沿着对角线翻转
+        Utils.flip_diag(PNetIn,h,w,3);
         inferenceInterface.feed(PNetInName,PNetIn,1,w,h,3);
         inferenceInterface.run(PNetOutName,false);
         int PNetOutSizeW=(int)Math.ceil(w*0.5-5);
@@ -95,33 +93,20 @@ public class MTCNN {
         float[] PNetOutB=new float[PNetOutSizeW*PNetOutSizeH*4];
         inferenceInterface.fetch(PNetOutName[0],PNetOutP);
         inferenceInterface.fetch(PNetOutName[1],PNetOutB);
-        //【写法一】先翻转，后转为2/3维数组
         Utils.flip_diag(PNetOutP,PNetOutSizeW,PNetOutSizeH,2);
         Utils.flip_diag(PNetOutB,PNetOutSizeW,PNetOutSizeH,4);
         Utils.expand(PNetOutB,PNetOutBias);
         Utils.expandProb(PNetOutP,PNetOutProb);
-        /*
-        *【写法二】这个比较快，快了3ms。意义不大，用上面的方法比较直观
-        for (int y=0;y<PNetOutSizeH;y++)
-            for (int x=0;x<PNetOutSizeW;x++){
-               int idx=PNetOutSizeH*x+y;
-               PNetOutProb[y][x]=PNetOutP[idx*2+1];
-               for(int i=0;i<4;i++)
-                   PNetOutBias[y][x][i]=PNetOutB[idx*4+i];
-            }
-        */
+
         return 0;
     }
-    //Non-Maximum Suppression
-    //nms，不符合条件的deleted设置为true
+
     private void nms(Vector<Box> boxes,float threshold,String method){
-        //NMS.两两比对
-        //int delete_cnt=0;
+
         int cnt=0;
         for(int i=0;i<boxes.size();i++) {
             Box box = boxes.get(i);
             if (!box.deleted) {
-                //score<0表示当前矩形框被删除
                 for (int j = i + 1; j < boxes.size(); j++) {
                     Box box2=boxes.get(j);
                     if (!box2.deleted) {
@@ -138,27 +123,23 @@ public class MTCNN {
                             iou = 1.0f * areaIoU / (min(box.area(), box2.area()));
                             Log.i(TAG,"[*]iou="+iou);
                         }
-                        if (iou >= threshold) { //删除prob小的那个框
+                        if (iou >= threshold) {
                             if (box.score>box2.score)
                                 box2.deleted=true;
                             else
                                 box.deleted=true;
-                            //delete_cnt++;
                         }
                     }
                 }
             }
         }
-        //Log.i(TAG,"[*]sum:"+boxes.size()+" delete:"+delete_cnt);
     }
     private int generateBoxes(float[][] prob,float[][][]bias,float scale,float threshold,Vector<Box> boxes){
         int h=prob.length;
         int w=prob[0].length;
-        //Log.i(TAG,"[*]height:"+prob.length+" width:"+prob[0].length);
         for (int y=0;y<h;y++)
             for (int x=0;x<w;x++){
                 float score=prob[y][x];
-                //only accept prob >threadshold(0.6 here)
                 if (score>threshold){
                     Box box=new Box();
                     //score
@@ -168,7 +149,6 @@ public class MTCNN {
                     box.box[1]=Math.round(y*2/scale);
                     box.box[2]=Math.round((x*2+11)/scale);
                     box.box[3]=Math.round((y*2+11)/scale);
-                    //bbr
                     for(int i=0;i<4;i++)
                         box.bbr[i]=bias[y][x][i];
                     //add
@@ -181,13 +161,7 @@ public class MTCNN {
         for (int i=0;i<boxes.size();i++)
             boxes.get(i).calibrate();
     }
-    //Pnet + Bounding Box Regression + Non-Maximum Regression
-    /* NMS执行完后，才执行Regression
-     * (1) For each scale , use NMS with threshold=0.5
-     * (2) For all candidates , use NMS with threshold=0.7
-     * (3) Calibrate Bounding Box
-     * 注意：CNN输入图片最上面一行，坐标为[0..width,0]。所以Bitmap需要对折后再跑网络;网络输出同理.
-     */
+
     private Vector<Box> PNet(Bitmap bitmap,int minSize){
         int whMin=min(bitmap.getWidth(),bitmap.getHeight());
         float currentFaceSize=minSize;  //currentFaceSize=minSize/(factor^k) k=0,1,2... until excced whMin
@@ -205,17 +179,14 @@ public class MTCNN {
             float[][]   PNetOutProb=new float[PNetOutSizeH][PNetOutSizeW];;
             float[][][] PNetOutBias=new float[PNetOutSizeH][PNetOutSizeW][4];
             PNetForward(bm,PNetOutProb,PNetOutBias);
-            //(3)数据解析
             Vector<Box> curBoxes=new Vector<Box>();
             generateBoxes(PNetOutProb,PNetOutBias,scale,PNetThreshold,curBoxes);
-            //Log.i(TAG,"[*]CNN Output Box number:"+curBoxes.size()+" Scale:"+scale);
-            //(4)nms 0.5
+            //(3)nms 0.5
             nms(curBoxes,0.5f,"Union");
-            //(5)add to totalBoxes
+            //(4)add to totalBoxes
             for (int i=0;i<curBoxes.size();i++)
                 if (!curBoxes.get(i).deleted)
                     totalBoxes.addElement(curBoxes.get(i));
-            //Face Size等比递增
             currentFaceSize/=factor;
         }
         //NMS 0.7
@@ -224,15 +195,15 @@ public class MTCNN {
         BoundingBoxReggression(totalBoxes);
         return Utils.updateBoxes(totalBoxes);
     }
-    //截取box中指定的矩形框(越界要处理)，并resize到size*size大小，返回数据存放到data中。
+    //resize box size*size, saved the returned data.
     public Bitmap tmp_bm;
     private void crop_and_resize(Bitmap bitmap,Box box,int size,float[] data){
-        //(2)crop and resize
+        //crop and resize
         Matrix matrix = new Matrix();
         float scale=1.0f*size/box.width();
         matrix.postScale(scale, scale);
         Bitmap croped=Bitmap.createBitmap(bitmap, box.left(),box.top(),box.width(), box.height(),matrix,true);
-        //(3)save
+        //save
         int[] pixels_buf=new int[size*size];
         croped.getPixels(pixels_buf,0,croped.getWidth(),0,0,croped.getWidth(),croped.getHeight());
         float imageMean=127.5f;
@@ -244,9 +215,7 @@ public class MTCNN {
             data[i * 3 + 2] = ((val & 0xFF) - imageMean) / imageStd;
         }
     }
-    /*
-     * RNET跑神经网络，将score和bias写入boxes
-     */
+
     private void RNetForward(float[] RNetIn,Vector<Box>boxes){
         int num=RNetIn.length/24/24/3;
         //feed & run
@@ -257,7 +226,6 @@ public class MTCNN {
         float[] RNetB=new float[num*4];
         inferenceInterface.fetch(RNetOutName[0],RNetP);
         inferenceInterface.fetch(RNetOutName[1],RNetB);
-        //转换
         for (int i=0;i<num;i++) {
             boxes.get(i).score = RNetP[i * 2 + 1];
             for (int j=0;j<4;j++)
@@ -274,7 +242,6 @@ public class MTCNN {
         for (int i=0;i<num;i++){
             crop_and_resize(bitmap,boxes.get(i),24,curCrop);
             Utils.flip_diag(curCrop,24,24,3);
-            //Log.i(TAG,"[*]Pixels values:"+curCrop[0]+" "+curCrop[1]);
             for (int j=0;j<curCrop.length;j++) RNetIn[RNetInIdx++]= curCrop[j];
         }
         //Run RNet
@@ -288,9 +255,7 @@ public class MTCNN {
         BoundingBoxReggression(boxes);
         return Utils.updateBoxes(boxes);
     }
-    /*
-     * ONet跑神经网络，将score和bias写入boxes
-     */
+
     private void ONetForward(float[] ONetIn,Vector<Box>boxes){
         int num=ONetIn.length/48/48/3;
         //feed & run
@@ -303,7 +268,7 @@ public class MTCNN {
         inferenceInterface.fetch(ONetOutName[0],ONetP);
         inferenceInterface.fetch(ONetOutName[1],ONetB);
         inferenceInterface.fetch(ONetOutName[2],ONetL);
-        //转换
+
         for (int i=0;i<num;i++) {
             //prob
             boxes.get(i).score = ONetP[i * 2 + 1];
@@ -316,7 +281,6 @@ public class MTCNN {
                 int x=boxes.get(i).left()+(int) (ONetL[i * 10 + j]*boxes.get(i).width());
                 int y= boxes.get(i).top()+(int) (ONetL[i * 10 + j +5]*boxes.get(i).height());
                 boxes.get(i).landmark[j] = new Point(x,y);
-                //Log.i(TAG,"[*] landmarkd "+x+ "  "+y);
             }
         }
     }
@@ -350,13 +314,7 @@ public class MTCNN {
             boxes.get(i).limitSquare(w,h);
         }
     }
-    /*
-     * 参数：
-     *   bitmap:要处理的图片
-     *   minFaceSize:最小的人脸像素值.(此值越大，检测越快)
-     * 返回：
-     *   人脸框
-     */
+
     public Vector<Box> detectFaces(Bitmap bitmap,int minFaceSize) {
         long t_start = System.currentTimeMillis();
         //【1】PNet generate candidate boxes
