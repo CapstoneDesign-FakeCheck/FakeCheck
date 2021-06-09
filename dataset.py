@@ -7,7 +7,7 @@ from torch.utils.data import Subset
 
 def make_dataset(dataset):
     # data load
-    batch_size  = 128
+    batch_size  = 64
     random_seed = 555
     random.seed(random_seed)
     torch.manual_seed(random_seed)

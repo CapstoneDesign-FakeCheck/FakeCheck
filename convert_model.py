@@ -17,6 +17,7 @@ from dataset import load_data
 
 
 def torch2onnx():
+    # Adam으로 학습을 돌리면 ONNX변환 안됨.
     # PYTORCH 모델(.pt)을 ONNX으로 변환
     # https://tutorials.pytorch.kr/advanced/super_resolution_with_onnxruntime.html
 
@@ -28,7 +29,7 @@ def torch2onnx():
     # 모델을 미리 학습된 가중치로 초기화
     # 미리 학습된 가중치를 읽어옴
     # eval()모드를 적용할 수 있어야 하므로, torch.save(model, PATH + 'model.pt')전체 모델을 저장한 pt파일이여야 함.
-    model_url = 'C:/Users/mmclab1/Desktop/fakecheck/pytorch_model_adv_epoch20.pt'
+    model_url = 'C:/Users/mmclab1/Desktop/fakecheck/pytorch_model_adv_epoch30_whole_dataset_6_sgd.pt'
     map_location = lambda storage, loc: storage
     if torch.cuda.is_available():
         map_location = None
@@ -45,7 +46,7 @@ def torch2onnx():
     # 모델을 실행하여 어떤 연산자들이 출력값을 계산하는데 사용되었는지를 기록
     torch.onnx.export(torch_model,               # 실행될 모델
                       x,                         # 모델 입력값 (튜플 또는 여러 입력값들도 가능)
-                      'C:/Users/mmclab1/Desktop/fakecheck/onnx_model_adv.onnx',         # 모델 저장 경로 (파일 또는 파일과 유사한 객체 모두 가능)
+                      'C:/Users/mmclab1/Desktop/fakecheck/onnx_model_adv_tmp.onnx',         # 모델 저장 경로 (파일 또는 파일과 유사한 객체 모두 가능)
                       export_params=True,        # 모델 파일 안에 학습된 모델 가중치를 저장할지의 여부
                       opset_version=10,          # 모델을 변환할 때 사용할 ONNX 버전
                       do_constant_folding=True,  # 최적하시 상수폴딩을 사용할지의 여부
@@ -58,10 +59,10 @@ def torch2onnx():
 
 
     # onnx model 잘 변환되었는지 확인
-    onnx_model = onnx.load("./onnx_model_adv.onnx")
+    onnx_model = onnx.load("./onnx_model_adv_tmp.onnx")
     onnx.checker.check_model(onnx_model)
 
-    ort_session = onnxruntime.InferenceSession("./onnx_model_adv.onnx")
+    ort_session = onnxruntime.InferenceSession("./onnx_model_adv_tmp.onnx")
 
     def to_numpy(tensor):
         return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
@@ -114,12 +115,12 @@ def tf2lite():
     import tensorflow as tf
 
     # Convert the model
-    saved_model_dir = "C:/Users/mmclab1/Desktop/fakecheck/tf_model_adv"
+    saved_model_dir = "C:/Users/mmclab1/Desktop/fakecheck/tf_model_adv_tmp"
     converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_dir)
     tflite_model = converter.convert()
 
     # Save the model.
-    with open('tfLite_model.tflite', 'wb') as f:
+    with open('tfLite_model_tmp.tflite', 'wb') as f:
         f.write(tflite_model)
 
     print('success converting tf to tf-lite')

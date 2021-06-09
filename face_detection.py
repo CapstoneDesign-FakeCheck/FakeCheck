@@ -27,7 +27,7 @@ from os import listdir
 from os.path import isfile, join
 
 
-path = './dataset/real_img'
+path = './dataset/fake_img'
 files = [f for f in listdir(path) if isfile(join(path, f))]
 
 """
@@ -43,7 +43,7 @@ def draw_faces(filename, result_list):
   for i in range(len(result_list)):
     x1, y1, width, height = result_list[i]['box']
     x2, y2 = x1+width, y1+height                  #오른쪽 하단 모서리 좌표
-    pyplot.imsave("C:/Users/mmclab1/Desktop/fakecheck/dataset/real_img/%s" % (filename.split('\\')[1]),
+    pyplot.imsave("C:/Users/mmclab1/Desktop/fakecheck/dataset/fake_img/%s" % (filename.split('\\')[1]),
                   data[max(y1 - 20, 0):y2 + 20, max(x1 - 40, 0):x2 + 40])
 
 
@@ -55,4 +55,7 @@ for n in range(0, len(files)):
   faces = detector.detect_faces(pixels)
 
   draw_faces(fn, faces)
+
+
+print('succes face detection')
 

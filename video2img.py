@@ -8,7 +8,7 @@ from natsort import natsorted
 import glob
 
 
-image_path = glob.glob('C:/Users/mmclab1/Desktop/fakecheck/dataset/real_video/*.mp4', recursive=False)
+image_path = glob.glob('C:/Users/mmclab1/Desktop/fakecheck/dataset/fake_video/*.mp4', recursive=False)
 image_path = natsorted(image_path)
 
 for path in image_path:
@@ -21,7 +21,7 @@ for path in image_path:
         # 30 frame 마다 한 장씩 추출
         if (int(vidcap.get(1)) % 30 == 0):
             img_name = path.split('\\')[1]
-            cv2.imwrite("C:/Users/mmclab1/Desktop/fakecheck/dataset/real_img/%s-frame_%d.jpg" % (
+            cv2.imwrite("C:/Users/mmclab1/Desktop/fakecheck/dataset/fake_img/%s-frame_%d.jpg" % (
             img_name.split('.')[0], count), image)
             count += 1
 

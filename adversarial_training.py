@@ -56,7 +56,7 @@ def train_model(device, dataloaders, batch_size, len_dataset, model, criterion, 
                             torchattacks.PGD(model, eps=8 / 255, alpha=2 / 255, steps=7),
                             ]
 
-                    inputs = atks[0](inputs, labels).to(device)
+                    inputs = atks[i % 3](inputs, labels).to(device)
 
                     # Image Processing Based Defense Methods --> tensor를 image로 변환하여 적용
                     for batch in range(inputs.shape[0]):
