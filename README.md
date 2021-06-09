@@ -9,7 +9,7 @@ deepfake로 인한 피해를 줄이기 위해서 모델 방해공격(adversarial
 * MTCNN 모델을 이용하여 얼굴 부분만 crop
 | REAL | FAKE |
 |:---:|:---:|
-|<img height="200" src="https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/real.png"/>|<img height="200" src="https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/fake.jpg"/>|
+|![](https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/real.png)|![](https://github.com/CapstoneDesign-FakeCheck/FakeCheck/blob/master/pic/fake.jpg)|
 
 ## MODEL
 
